@@ -1,22 +1,32 @@
 const express = require('express');
 const fetch = require('node-fetch');
 const app = express();
-app.use(express.json());
 
-const SHEET_API_BASE = 'https://script.google.com/macros/s/109520957560384863731/exec'; // 🔁 заміни на свій
+const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwzCvRsbx1A2LCslwzsD85ZcmScCwAym7rtwwfcg0tPIK04shQxPKkyePext-VH4vAyBw/exec';
 
 app.get('/bonus', async (req, res) => {
   const rc = req.query.rc;
-  if (!rc) return res.status(400).json({ error: 'Missing rc' });
+  if (!rc) {
+    return res.status(400).json({ error: 'Missing rc' });
+  }
 
   try {
-    const apiRes = await fetch(`${SHEET_API_BASE}?rc=${encodeURIComponent(rc)}`);
-    const data = await apiRes.json();
+    const url = `${GOOGLE_APPS_SCRIPT_URL}?rc=${encodeURIComponent(rc)}`;
+    const response = await fetch(url);
+    const data = await response.text(); // іноді Google відповідає як text
+    const json = JSON.parse(data);
+
     res.set('Access-Control-Allow-Origin', '*');
-    res.json(data);
+    res.set('Access-Control-Allow-Methods', 'GET');
+    res.set('Access-Control-Allow-Headers', 'Content-Type');
+    res.json(json);
+
   } catch (err) {
-    res.status(500).json({ error: 'Google API error', details: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'Proxy error', details: err.message });
   }
 });
 
-app.listen(3000, () => console.log('🚀 Proxy server running on port 3000'));
+app.listen(3000, () => {
+  console.log('🚀 Proxy running on http://localhost:3000');
+});
