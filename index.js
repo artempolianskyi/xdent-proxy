@@ -7,26 +7,38 @@ const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwzCvRsb
 app.get('/bonus', async (req, res) => {
   const rc = req.query.rc;
   if (!rc) {
-    return res.status(400).json({ error: 'Missing rc' });
+    return res.status(400).json({ error: 'Missing rc parameter' });
   }
 
-  try {
-    const url = `${GOOGLE_APPS_SCRIPT_URL}?rc=${encodeURIComponent(rc)}`;
-    const response = await fetch(url);
-    const data = await response.text(); // іноді Google відповідає як text
-    const json = JSON.parse(data);
+  const url = `${GOOGLE_APPS_SCRIPT_URL}?rc=${encodeURIComponent(rc)}`;
 
-    res.set('Access-Control-Allow-Origin', '*');
-    res.set('Access-Control-Allow-Methods', 'GET');
-    res.set('Access-Control-Allow-Headers', 'Content-Type');
-    res.json(json);
+  try {
+    const response = await fetch(url);
+    const text = await response.text();
+
+    // Спробуємо розпарсити JSON
+    try {
+      const json = JSON.parse(text);
+      res.set('Access-Control-Allow-Origin', '*');
+      res.set('Access-Control-Allow-Methods', 'GET');
+      res.set('Access-Control-Allow-Headers', 'Content-Type');
+      return res.json(json);
+    } catch (parseError) {
+      // Якщо відповідь не JSON (наприклад, HTML з помилкою)
+      console.warn('⚠️ Відповідь не JSON. Частина відповіді:', text.slice(0, 200));
+      return res.status(502).json({
+        error: 'Invalid response from Google Apps Script',
+        details: parseError.message,
+        preview: text.slice(0, 200) // на всяк випадок покажемо частину HTML
+      });
+    }
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Proxy error', details: err.message });
+    console.error('❌ Помилка при запиті до GAS:', err);
+    return res.status(500).json({ error: 'Proxy fetch error', details: err.message });
   }
 });
 
 app.listen(3000, () => {
-  console.log('🚀 Proxy running on http://localhost:3000');
+  console.log('🚀 Proxy running at http://localhost:3000');
 });
